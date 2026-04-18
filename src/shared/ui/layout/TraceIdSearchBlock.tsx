@@ -160,6 +160,9 @@ export const TraceIdSearchBlock = () => {
                   Метод
                 </TableCell>
                 <TableCell sx={{ backgroundColor: "#fff", fontWeight: 700 }}>
+                  Service
+                </TableCell>
+                <TableCell sx={{ backgroundColor: "#fff", fontWeight: 700 }}>
                   Path
                 </TableCell>
                 <TableCell sx={{ backgroundColor: "#fff", fontWeight: 700 }}>
@@ -181,6 +184,14 @@ export const TraceIdSearchBlock = () => {
                   <TableCell sx={{ whiteSpace: "nowrap", fontWeight: 600 }}>
                     {log.method}
                   </TableCell>
+
+                  <TableCell sx={{ whiteSpace: "nowrap"}}>
+                    <Chip
+                    label={log.serviceName}
+                    size="small"
+                    sx={{ fontWeight: 600, backgroundColor: "#fff"}}
+                    />
+                </TableCell>
 
                   <TableCell
                     sx={{
