@@ -20,6 +20,10 @@ import type {
   ServiceType,
 } from "../../shared/ui/layout/monitoringApi";
 
+import { ServiceEventsTable } from "../../shared/ui/layout/ServiceEventsTable";
+
+import { TraceIdSearchBlock } from "../../shared/ui/layout/TraceIdSearchBlock";
+
 type ServiceConfig = {
   key: ServiceType;
   title: string;
@@ -56,31 +60,60 @@ export const MainPage = () => {
     useState<ErrorRateState>(initialErrorRateState);
 
   useEffect(() => {
-    services.forEach(async (service) => {
+    let isMounted = true;
+
+    const loadData = async () => {
       try {
-        const response = await getLogsByServiceType(service.key, 0, 1000);
+        const logsResponses = await Promise.all(
+          services.map((service) =>
+            getLogsByServiceType(service.key, 0, 1000)
+          )
+        );
 
-        setLogsByService((prev) => ({
-          ...prev,
-          [service.key]: response.data,
-        }));
+        const errorRateResponses = await Promise.all(
+          services.map((service) =>
+            getErrorRateByServiceType(service.key, 0, 1000)
+          )
+        );
+
+        if (!isMounted) return;
+
+        const nextLogsState: LogsState = {
+          AUTH_SERVICE: [],
+          INFO_SERVICE: [],
+          CORE_SERVICE: [],
+          CREDIT_SERVICE: [],
+        };
+
+        const nextErrorRateState: ErrorRateState = {
+          AUTH_SERVICE: [],
+          INFO_SERVICE: [],
+          CORE_SERVICE: [],
+          CREDIT_SERVICE: [],
+        };
+
+        services.forEach((service, index) => {
+          nextLogsState[service.key] = logsResponses[index].data;
+          nextErrorRateState[service.key] = errorRateResponses[index].data;
+        });
+
+        setLogsByService(nextLogsState);
+        setErrorRateByService(nextErrorRateState);
       } catch (error) {
-        console.error(`Ошибка загрузки логов для ${service.key}`, error);
+        console.error("Ошибка загрузки мониторинга", error);
       }
-    });
+    };
 
-    services.forEach(async (service) => {
-      try {
-        const response = await getErrorRateByServiceType(service.key, 0, 1000);
+    loadData();
 
-        setErrorRateByService((prev) => ({
-          ...prev,
-          [service.key]: response.data,
-        }));
-      } catch (error) {
-        console.error(`Ошибка загрузки errorRate для ${service.key}`, error);
-      }
-    });
+    const intervalId = window.setInterval(() => {
+      loadData();
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const totalLogs = Object.values(logsByService).reduce(
@@ -101,59 +134,60 @@ export const MainPage = () => {
   })();
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 3, md: 4 },
-          background:
-            "#1976d2",
-          color: "white",
-          position: "relative",
-          overflow: "hidden",
-          boxShadow: "0 20px 60px rgba(15,23,42,0.25)",
-        }}
-      >
+  <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 3, md: 4 },
+        background: "#1976d2",
+        color: "white",
+        position: "relative",
+        overflow: "hidden",
+        boxShadow: "0 20px 60px rgba(15,23,42,0.25)",
+      }}
+    >
+      <Stack spacing={2} sx={{ position: "relative", zIndex: 1 }}>
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 800,
+            maxWidth: 780,
+            fontSize: { xs: "2rem", md: "2.8rem" },
+          }}
+        >
+          Сервис мониторинга
+        </Typography>
 
-        <Stack spacing={2} sx={{ position: "relative", zIndex: 1 }}>
-          <Typography
-            variant="h3"
-            sx={{
-              fontWeight: 800,
-              maxWidth: 780,
-              fontSize: { xs: "2rem", md: "2.8rem" },
-            }}
-          >
-            Сервис мониторинга
-          </Typography>
+        <Typography
+          variant="body1"
+          sx={{
+            maxWidth: 820,
+            color: "rgba(255,255,255,0.82)",
+            fontSize: "1rem",
+          }}
+        >
+        </Typography>
+      </Stack>
+    </Paper>
 
-          <Typography
-            variant="body1"
-            sx={{
-              maxWidth: 820,
-              color: "rgba(255,255,255,0.82)",
-              fontSize: "1rem",
-            }}
-          >
-          </Typography>
-        </Stack>
-      </Paper>
+    <TraceIdSearchBlock />
 
-      <Stack spacing={5}>
-        {services.map((service) => (
-          <Box key={service.key}>
-            <Box sx={{ mb: 1.5, px: 0.5 }}>
-              <Chip
-                label={service.title}
-                sx={{
-                  fontWeight: 700,
-                  color: service.color,
-                  backgroundColor: "white",
-                  border: `1px solid ${service.color}22`,
-                }}
-              />
-            </Box>
+    <Stack spacing={5}>
+      {services.map((service) => (
+        <Box key={service.key}>
+          <Box sx={{ mb: 1.5, px: 0.5 }}>
+            <Chip
+              label={service.title}
+              sx={{
+                fontWeight: 700,
+                color: service.color,
+                backgroundColor: "white",
+                border: `1px solid ${service.color}22`,
+              }}
+            />
+          </Box>
 
+          <Stack spacing={3}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, lg: 6 }}>
                 <ServiceDetailedChart
@@ -169,9 +203,17 @@ export const MainPage = () => {
                 />
               </Grid>
             </Grid>
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  );
+
+            <ServiceEventsTable
+              title={service.title}
+              logs={logsByService[service.key]}
+              limit={30}
+              height={320}
+            />
+          </Stack>
+        </Box>
+      ))}
+    </Stack>
+  </Box>
+);
 };

@@ -77,3 +77,19 @@ export async function getErrorRateByServiceType(
 
   return response.json();
 }
+
+export async function getLogsByTraceId(
+  traceId: string,
+  page = 0,
+  size = 100
+): Promise<MonitoringStatPageResponse> {
+  const response = await fetch(
+    `${BASE_URL}/logs/getAll?traceId=${encodeURIComponent(traceId)}&page=${page}&size=${size}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Ошибка загрузки данных по traceId: ${response.status}`);
+  }
+
+  return response.json();
+}
